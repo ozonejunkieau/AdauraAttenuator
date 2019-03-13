@@ -125,20 +125,26 @@ class AdauraAttenuator(object):
             pass # errors on shutdown
     
     def __str__(self):
-        return "ADAURA Attenuator SRN: {}@: {}".format(self.serial_number, self.location)
+        return "ADAURA Attenuator SRN: {}@:{}".format(self.serial_number, self.location)
     
     
     def _extract_from_info_string(self, query_string):
+        """
+        A helper function to 
+        """
         assert self._info_raw_response is not None
         
         return [n.split(': ')[1].strip() for n in self._info_raw_response if query_string in n][0]
 
        
     def get_info(self):
-        # send "info"
+        """
+        Get the current device information
+        """
+        
         self.send_command('info')
         
-        # read 16 lines from the serial port
+        # read 16 lines from the device
         responses = self.receive_response(16)
         
         # Store raw response against object
@@ -172,6 +178,9 @@ class AdauraAttenuator(object):
         
 
     def get_status(self):
+        """
+        Get the current attenuation on all channels
+        """
         self.send_command('status')
         
         response = self.receive_response(4)
@@ -184,18 +193,23 @@ class AdauraAttenuator(object):
             if len(this_channel) > 0:
                 channel_values.append(this_channel[0])
         
-        self.status = channel_values
+        self.status = [float(v) for v in channel_values]
         return channel_values
         
     
     def set_attenuator(self, channel, value):
+        """
+        Set the attenuation on a channel, checking that the response was correct.
+        """
+        
         tx_string = "set {0} {1}".format(channel, value)
         
         self.send_command(tx_string)
         
+        # Get a line of response to determine if it was succesful
         response_one = self.receive_response(1)
         
-        # Determine if running an integer value
+        # Determine if running an integer value, as the format changes.
         if value % 1 is 0:
             # An integer value
             string_val = "{0:.1f}".format(value)
@@ -205,8 +219,10 @@ class AdauraAttenuator(object):
         expected_response = "Channel {0} successfully set to {1}".format(channel,string_val)
         
         if not any([expected_response in l for l in response_one]):
+            # Wasn't succesful, therefore error.
             raise IOError('Invalid attenuation specified.')
         else:    
+            # Was succesful, flush the remainder of the response
             self.device_flush_buffer()
             
     
@@ -318,28 +334,30 @@ class AdauraAttenuator(object):
     
         
 if __name__ == "__main__":
+    #Some example code if running this directly.
+    
     print("Found the following attenuators:")
     found_attenuators = AdauraAttenuator.find_attenuators()
     print(found_attenuators)
     print("")
     
-#    if len(found_attenuators) is 1:
-#       found_attenuator = found_attenuators[0]
-#        attenuator = ADAURAAttenuator(serial_number=found_attenuator[0],
-#                                      comport = found_attenuator[1],
-#                                      )
+    # Automatically open a serial attenuator if found.
+    if len(found_attenuators) is 1:
+       found_attenuator = found_attenuators[0]
+        attenuator = ADAURAAttenuator(serial_number=found_attenuator[0],
+                                      comport = found_attenuator[1],
+                                      )
     
     
     #HTTP Connection
-    
-    attenuator = AdauraAttenuator(ip_address='111.111.111.111', 
-                                  connection=AdauraAttenuator.CONN_HTTP,
-                                      )
+    #attenuator = AdauraAttenuator(ip_address='111.111.111.111', 
+    #                              connection=AdauraAttenuator.CONN_HTTP,
+    #                                  )
     
     # Telnet Connection
-    attenuator = AdauraAttenuator(ip_address='111.111.111.111', 
-                                  connection=AdauraAttenuator.CONN_TELNET,
-                                      )
+    #attenuator = AdauraAttenuator(ip_address='111.111.111.111', 
+    #                              connection=AdauraAttenuator.CONN_TELNET,
+    #                                  )
     
     info = attenuator.get_info()
     status = attenuator.get_status()
